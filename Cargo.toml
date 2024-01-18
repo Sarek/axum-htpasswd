@@ -11,3 +11,9 @@ license = "MIT"
 categories = ["web-programming"]
 
 [dependencies]
+axum = { version = "0.6", features = ["headers"] }
+base64 = "0.21"
+http-body = "0.4"
+log = { version = "0.4", features = ["std"] }
+tokio = { version = "1.33.0", features = ["fs", "io-std"] }
+tower-http = { version = "0.4", features = ["full"] }
