@@ -6,7 +6,7 @@
 //! files.
 
 use axum::http::{header, Request, Response, StatusCode};
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use http_body::Body;
 use log::{debug, error};
 use std::marker::PhantomData;
@@ -61,7 +61,8 @@ impl<ResBody> FileAuth<ResBody> {
             Some(credentials) if self.known_users.contains(&credentials.to_string()) => {
                 debug!(
                     "Found matching credentials for authentication attempt: {}",
-                    str::from_utf8(&general_purpose::STANDARD.decode(&credentials).unwrap()).unwrap()
+                    str::from_utf8(&general_purpose::STANDARD.decode(&credentials).unwrap())
+                        .unwrap()
                 );
                 return true;
             }
@@ -82,7 +83,7 @@ where
             Some(actual) if self.authorized(&actual.to_str().unwrap()) => Ok(()),
             _ => {
                 let mut res = Response::new(ResBody::default());
-                *res.status_mut()= StatusCode::UNAUTHORIZED;
+                *res.status_mut() = StatusCode::UNAUTHORIZED;
                 res.headers_mut()
                     .insert(header::WWW_AUTHENTICATE, "Basic".parse().unwrap());
                 Err(res)
