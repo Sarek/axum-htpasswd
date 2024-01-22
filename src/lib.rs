@@ -15,12 +15,41 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tower_http::validate_request::ValidateRequest;
 
+/// File-based authentication provider backed by a plaintext file.
+///
+/// This is the most basic variant of a provider. It simply expects a file
+/// consisting of plaintext user-password pairs, delimited by a colon.
 pub struct FileAuth<ResBody> {
     known_users: Vec<String>,
     _ty: PhantomData<fn() -> ResBody>,
 }
 
 impl<ResBody> FileAuth<ResBody> {
+    /// Create a new authentication engine.
+    ///
+    /// Build a new authentication engine to be used by
+    /// axum. All authentications performed by this engine will be
+    /// backed by the given `file`.
+    ///
+    /// To use it, insert it into your axum router *after* the routes
+    /// you want to protect:
+    ///
+    /// ```rust
+    /// use axum::Router;
+    /// use axum_htpasswd::FileAuth;
+    /// use tokio::fs::File;
+    /// use tower_http::services::ServeDir;
+    /// use tower_http::validate_request::ValidateRequestHeaderLayer;
+    ///
+    /// async fn build_router() -> Router {
+    ///     let stuff = ServeDir::new("assets");
+    ///     Router::new()
+    ///         .route_service("/*path", stuff) // route to be protected
+    ///         .route_layer(ValidateRequestHeaderLayer::custom(
+    ///             FileAuth::new(&mut File::open("htpasswd").await.unwrap()).await
+    ///         ))
+    /// }
+    /// ```
     pub async fn new(file: &mut File) -> Self {
         let mut users = Vec::new();
         let mut raw_data = String::new();
