@@ -11,9 +11,12 @@ license = "MIT"
 categories = ["web-programming"]
 
 [dependencies]
-axum = { version = "0.6", features = ["headers"] }
+axum = { version = "0.7" }
 base64 = "0.21"
-http-body = "0.4"
+http-body = "1.0"
 log = { version = "0.4", features = ["std"] }
-tokio = { version = "1.33.0", features = ["fs", "io-std"] }
-tower-http = { version = "0.4", features = ["full"] }
+tokio = { version = "1.33.0", features = ["fs", "io-std", "macros"] }
+tower-http = { version = "0.5", features = ["full"] }
+
+[dev-dependencies]
+tempfile = "3.9.0"
