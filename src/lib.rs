@@ -131,3 +131,23 @@ impl<ResBody> Clone for FileAuth<ResBody> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use axum::response::Response;
+    use std::io::Write;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_new() -> Result<(), std::io::Error> {
+        use tempfile::tempfile;
+
+        let mut htpasswd = tempfile()?;
+        writeln!(htpasswd, "foo:bar")?;
+        let mut htpasswd = tokio::fs::File::from_std(htpasswd);
+
+        FileAuth::<Response>::new(&mut htpasswd).await;
+        Ok(())
+    }
+}
