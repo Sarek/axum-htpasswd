@@ -58,9 +58,9 @@ impl<ResBody> FileAuth<ResBody> {
             panic!("Unable to read user secret file!");
         }
 
-        let it = raw_data.split_terminator("\n");
+        let it = raw_data.split_terminator('\n');
         it.for_each(|x| {
-            if x.starts_with("#") {
+            if x.starts_with('#') {
                 return;
             }
             debug!("Adding user-password combination {}", &x);
@@ -79,7 +79,7 @@ impl<ResBody> FileAuth<ResBody> {
         let credentials = it.next();
 
         match scheme {
-            Some(scheme) if scheme == "Basic" => (),
+            Some("Basic") => (),
             _ => {
                 error!("Received wrong or no authentication scheme. Rejecting authentication attempt...");
                 return false;
@@ -90,14 +90,14 @@ impl<ResBody> FileAuth<ResBody> {
             Some(credentials) if self.known_users.contains(&credentials.to_string()) => {
                 debug!(
                     "Found matching credentials for authentication attempt: {}",
-                    str::from_utf8(&general_purpose::STANDARD.decode(&credentials).unwrap())
+                    str::from_utf8(&general_purpose::STANDARD.decode(credentials).unwrap())
                         .unwrap()
                 );
-                return true;
+                true
             }
             _ => {
                 error!("Did not find matching credentials for authentication attempt");
-                return false;
+                false
             }
         }
     }
@@ -109,7 +109,7 @@ where
 {
     fn validate(&mut self, request: &mut Request<B>) -> Result<(), Response<Self::ResponseBody>> {
         match request.headers().get(header::AUTHORIZATION) {
-            Some(actual) if self.authorized(&actual.to_str().unwrap()) => Ok(()),
+            Some(actual) if self.authorized(actual.to_str().unwrap()) => Ok(()),
             _ => {
                 let mut res = Response::new(ResBody::default());
                 *res.status_mut() = StatusCode::UNAUTHORIZED;
