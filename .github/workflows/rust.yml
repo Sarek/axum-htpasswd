@@ -23,23 +23,22 @@ jobs:
     name: "Coverage"
     runs-on: ubuntu-latest
     env:
-      CARGO_INCREMENTAL: '0'
-      RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-      RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-Zprofile -g -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+      RUSTDOCFLAGS: "-Cpanic=abort"
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
+      - run: cargo install grcov
       - run: cargo test --all-features --no-fail-fast
-      - uses: actions-rs/grcov@v0.1
-        with:
-          config: grcov.yml
+      - run: grcov . -s . --ignore "/home/*" --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./coverage.lcov
       - name: Coveralls upload
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: ${{ steps.coverage.outputs.report }}
+          path-to-lcov: ./coverage.lcov
     
   formatting:
     name: "cargo fmt"
@@ -63,7 +62,7 @@ jobs:
           toolchain: nightly
           components: clippy
       - name: Clippy
-        uses: actions-rs/clippy-check@v1
+        uses: giraffate/clippy-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+          reporter: 'github-pr-check'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
