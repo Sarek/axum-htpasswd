@@ -20,3 +20,4 @@ tower-http = { version = "0.5", features = ["full"] }
 
 [dev-dependencies]
 tempfile = "3.9.0"
+simple_logger = { version = "4.3", features = ["stderr"] }
