@@ -157,17 +157,41 @@ impl<ResBody> Clone for FileAuth<ResBody> {
 mod tests {
     use axum::response::Response;
     use simple_logger::SimpleLogger;
-    use std::io::{Write, SeekFrom};
+    use std::io::{SeekFrom, Write};
     use tempfile::tempfile;
     use tokio::io::AsyncSeekExt;
 
     use super::*;
 
+    fn setup_logging() {
+        use std::sync::Once;
+
+        static LOGGER: Once = Once::new();
+
+        LOGGER.call_once(|| {
+            SimpleLogger::new()
+                .with_colors(true)
+                .with_level(log::LevelFilter::Debug)
+                .env()
+                .with_utc_timestamps()
+                .init()
+                .unwrap()
+        });
+    }
+
+    async fn setup_plaintext_creds(credentials: Vec<&str>) -> Result<File, std::io::Error> {
+        let mut htpasswd = tempfile()?;
+        for cred in credentials.into_iter() {
+            writeln!(htpasswd, "{}", &cred)?;
+        }
+        let mut htpasswd = tokio::fs::File::from_std(htpasswd);
+        let _ = htpasswd.seek(SeekFrom::Start(0)).await;
+        Ok(htpasswd)
+    }
+
     #[tokio::test]
     async fn test_new() -> Result<(), std::io::Error> {
-        let mut htpasswd = tempfile()?;
-        writeln!(htpasswd, "foo:bar")?;
-        let mut htpasswd = tokio::fs::File::from_std(htpasswd);
+        let mut htpasswd = setup_plaintext_creds(vec!["foo:bar"]).await.unwrap();
 
         FileAuth::<Response>::new(&mut htpasswd, Encoding::PlainText).await;
         Ok(())
@@ -175,20 +199,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_plain_text_auth() -> Result<(), std::io::Error> {
-        SimpleLogger::new()
-        .with_colors(true)
-        .with_level(log::LevelFilter::Debug)
-        .env()
-        .with_utc_timestamps()
-        .init()
-        .unwrap();
+        setup_logging();
 
         let cred = "foo:bar";
-    
-        let mut htpasswd = tempfile()?;
-        writeln!(htpasswd, "{}", &cred)?;
-        let mut htpasswd = tokio::fs::File::from_std(htpasswd);
-        let _ = htpasswd.seek(SeekFrom::Start(0)).await;
+        let mut htpasswd = setup_plaintext_creds(vec![cred]).await.unwrap();
 
         let uut = FileAuth::<Response>::new(&mut htpasswd, Encoding::PlainText).await;
 
