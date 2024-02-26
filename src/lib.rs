@@ -210,4 +210,19 @@ mod tests {
         assert!(uut.authorized(&("Basic ".to_owned() + &cred)));
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_plain_text_auth_fails() -> Result<(), std::io::Error> {
+        setup_logging();
+
+        let cred = "foo:bar";
+        let wrong_cred = "foo:baz";
+        let mut htpasswd = setup_plaintext_creds(vec![wrong_cred]).await.unwrap();
+
+        let uut = FileAuth::<Response>::new(&mut htpasswd, Encoding::PlainText).await;
+
+        let cred = general_purpose::STANDARD.encode(cred);
+        assert!(!uut.authorized(&("Basic ".to_owned() + &cred)));
+        Ok(())
+    }
 }
