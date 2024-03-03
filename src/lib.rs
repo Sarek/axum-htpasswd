@@ -18,8 +18,8 @@ use tower_http::validate_request::ValidateRequest;
 #[derive(Debug, Copy, Clone)]
 pub enum Encoding {
     PlainText,
-    MD5,
-    ARGON,
+    MD5,   // not implemented yet!
+    ARGON, // not implemented yet!
 }
 
 /// File-based authentication provider backed by a plaintext file.
