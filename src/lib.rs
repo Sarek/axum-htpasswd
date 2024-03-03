@@ -15,6 +15,13 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tower_http::validate_request::ValidateRequest;
 
+#[derive(Debug, Copy, Clone)]
+pub enum Encoding {
+    PlainText,
+    MD5,   // not implemented yet!
+    ARGON, // not implemented yet!
+}
+
 /// File-based authentication provider backed by a plaintext file.
 ///
 /// This is the most basic variant of a provider. It simply expects a file
@@ -22,6 +29,7 @@ use tower_http::validate_request::ValidateRequest;
 pub struct FileAuth<ResBody> {
     known_users: Vec<String>,
     _ty: PhantomData<fn() -> ResBody>,
+    encoding: Encoding,
 }
 
 impl<ResBody> FileAuth<ResBody> {
@@ -36,7 +44,7 @@ impl<ResBody> FileAuth<ResBody> {
     ///
     /// ```rust
     /// use axum::Router;
-    /// use axum_htpasswd::FileAuth;
+    /// use axum_htpasswd::{Encoding, FileAuth};
     /// use tokio::fs::File;
     /// use tower_http::services::ServeDir;
     /// use tower_http::validate_request::ValidateRequestHeaderLayer;
@@ -46,11 +54,14 @@ impl<ResBody> FileAuth<ResBody> {
     ///     Router::new()
     ///         .route_service("/*path", stuff) // route to be protected
     ///         .route_layer(ValidateRequestHeaderLayer::custom(
-    ///             FileAuth::new(&mut File::open("htpasswd").await.unwrap()).await
+    ///             FileAuth::new(&mut File::open("htpasswd").await.unwrap(), Encoding::PlainText).await
     ///         ))
     /// }
     /// ```
-    pub async fn new(file: &mut File) -> Self {
+    pub async fn new(file: &mut File, encoding: Encoding) -> Self {
+        if !matches!(encoding, Encoding::PlainText) {
+            panic!("Encoding {:?} not supported yet!", encoding);
+        }
         let mut users = Vec::new();
         let mut raw_data = String::new();
         let res = file.read_to_string(&mut raw_data).await;
@@ -70,6 +81,7 @@ impl<ResBody> FileAuth<ResBody> {
         FileAuth {
             known_users: users,
             _ty: PhantomData,
+            encoding,
         }
     }
 
@@ -95,8 +107,12 @@ impl<ResBody> FileAuth<ResBody> {
                 );
                 true
             }
+            Some(credentials) => {
+                error!("Did not find matching credentials for authentication attempt. Supplied credentials: {}", &credentials);
+                false
+            }
             _ => {
-                error!("Did not find matching credentials for authentication attempt");
+                error!("Failed to extract credentials");
                 false
             }
         }
@@ -128,26 +144,85 @@ impl<ResBody> Clone for FileAuth<ResBody> {
         Self {
             known_users: self.known_users.clone(),
             _ty: PhantomData,
+            encoding: self.encoding,
         }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        *self = source.clone()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use axum::response::Response;
-    use std::io::Write;
+    use simple_logger::SimpleLogger;
+    use std::io::{SeekFrom, Write};
+    use tempfile::tempfile;
+    use tokio::io::AsyncSeekExt;
 
     use super::*;
 
+    fn setup_logging() {
+        use std::sync::Once;
+
+        static LOGGER: Once = Once::new();
+
+        LOGGER.call_once(|| {
+            SimpleLogger::new()
+                .with_colors(true)
+                .with_level(log::LevelFilter::Debug)
+                .env()
+                .with_utc_timestamps()
+                .init()
+                .unwrap()
+        });
+    }
+
+    async fn setup_plaintext_creds(credentials: Vec<&str>) -> Result<File, std::io::Error> {
+        let mut htpasswd = tempfile()?;
+        for cred in credentials.into_iter() {
+            writeln!(htpasswd, "{}", &cred)?;
+        }
+        let mut htpasswd = tokio::fs::File::from_std(htpasswd);
+        let _ = htpasswd.seek(SeekFrom::Start(0)).await;
+        Ok(htpasswd)
+    }
+
     #[tokio::test]
     async fn test_new() -> Result<(), std::io::Error> {
-        use tempfile::tempfile;
+        let mut htpasswd = setup_plaintext_creds(vec!["foo:bar"]).await.unwrap();
 
-        let mut htpasswd = tempfile()?;
-        writeln!(htpasswd, "foo:bar")?;
-        let mut htpasswd = tokio::fs::File::from_std(htpasswd);
+        FileAuth::<Response>::new(&mut htpasswd, Encoding::PlainText).await;
+        Ok(())
+    }
 
-        FileAuth::<Response>::new(&mut htpasswd).await;
+    #[tokio::test]
+    async fn test_plain_text_auth() -> Result<(), std::io::Error> {
+        setup_logging();
+
+        let cred = "foo:bar";
+        let mut htpasswd = setup_plaintext_creds(vec![cred]).await.unwrap();
+
+        let uut = FileAuth::<Response>::new(&mut htpasswd, Encoding::PlainText).await;
+
+        let cred = general_purpose::STANDARD.encode(cred);
+        assert!(uut.authorized(&("Basic ".to_owned() + &cred)));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_plain_text_auth_fails() -> Result<(), std::io::Error> {
+        setup_logging();
+
+        let cred = "foo:bar";
+        let wrong_cred = "foo:baz";
+        let mut htpasswd = setup_plaintext_creds(vec![wrong_cred]).await.unwrap();
+
+        let uut = FileAuth::<Response>::new(&mut htpasswd, Encoding::PlainText).await;
+
+        let cred = general_purpose::STANDARD.encode(cred);
+        assert!(!uut.authorized(&("Basic ".to_owned() + &cred)));
         Ok(())
     }
 }

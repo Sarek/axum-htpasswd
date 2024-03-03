@@ -3,12 +3,13 @@ name = "axum-htpasswd"
 version = "0.1.0"
 edition = "2021"
 
-authors = ["Sebastian Schäfer <sarek@uliweb.de>"]
 description = "Simple file-based authentication in Axum"
 homepage = "https://github.com/Sarek/axum-htpasswd"
 repository = "https://github.com/Sarek/axum-htpasswd"
 license = "MIT"
-categories = ["web-programming"]
+categories = ["web-programming::http-server"]
+keywords = ["http", "web", "authentication"]
+readme = "README.md"
 
 [dependencies]
 axum = { version = "0.7" }
@@ -20,3 +21,4 @@ tower-http = { version = "0.5", features = ["full"] }
 
 [dev-dependencies]
 tempfile = "3.9.0"
+simple_logger = { version = "4.3", features = ["stderr"] }
