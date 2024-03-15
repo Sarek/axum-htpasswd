@@ -7,6 +7,7 @@
 
 use axum::http::{header, Request, Response, StatusCode};
 use base64::{engine::general_purpose, Engine as _};
+use clap::ValueEnum;
 use http_body::Body;
 use log::{debug, error};
 use std::marker::PhantomData;
@@ -15,7 +16,7 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tower_http::validate_request::ValidateRequest;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(ValueEnum, Debug, Copy, Clone)]
 pub enum Encoding {
     PlainText,
     MD5,   // not implemented yet!

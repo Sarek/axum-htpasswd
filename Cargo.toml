@@ -12,10 +12,15 @@ keywords = ["http", "web", "authentication"]
 readme = "README.md"
 
 [dependencies]
+argon2 = { version = "0.5.3", features = ["rand"] }
 axum = { version = "0.7" }
 base64 = "0.21"
+clap = { version = "4.5", features = ["derive"] }
 http-body = "1.0"
 log = { version = "0.4", features = ["std"] }
+password-hash = { version = "0.5.0", features = ["getrandom"] }
+rpassword = "7.3.1"
+text_io = "0.1.12"
 tokio = { version = "1.33.0", features = ["fs", "io-std", "macros"] }
 tower-http = { version = "0.5", features = ["full"] }
 
