@@ -7,6 +7,7 @@
 
 use axum::http::{header, Request, Response, StatusCode};
 use base64::{engine::general_purpose, Engine as _};
+#[cfg(feature = "cli")]
 use clap::ValueEnum;
 use http_body::Body;
 use log::{debug, error};
@@ -16,7 +17,8 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tower_http::validate_request::ValidateRequest;
 
-#[derive(ValueEnum, Debug, Copy, Clone)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
+#[derive(Debug, Copy, Clone)]
 pub enum Encoding {
     PlainText,
     MD5,   // not implemented yet!

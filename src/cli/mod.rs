@@ -1,3 +1,5 @@
+#![cfg(feature = "cli")]
+
 use axum_htpasswd::Encoding;
 use clap::Parser;
 use rpassword::prompt_password;
