@@ -12,6 +12,7 @@ use std::{
 pub enum Encoding {
     PlainText,
     Argon2,
+    Scrypt,
 }
 
 #[derive(Debug, Clone)]
@@ -87,7 +88,8 @@ fn ask_for_password() -> Result<String, HtpasswdError> {
 fn encode_password(enc: Encoding, password: String) -> Result<String, HtpasswdError> {
     match enc {
         Encoding::PlainText => { return Ok(password) },
-        Encoding::Argon2 => { return argon_encode(password)},
+        Encoding::Argon2 => { return argon_encode(password) },
+        Encoding::Scrypt => { return scrypt_encode(password) },
     }
 }
 
@@ -98,6 +100,16 @@ fn argon_encode(password: String) -> Result<String, HtpasswdError> {
     let argon2 = Argon2::default();
 
     match argon2.hash_password(password.as_bytes(), &salt) {
+        Ok(password_hash) => { return Ok(password_hash.to_string()); },
+        Err(error) => { return Err(HtpasswdError::new(error.to_string().as_str())) }
+    }
+}
+
+fn scrypt_encode(password: String) -> Result<String, HtpasswdError> {
+    use scrypt::{password_hash::{rand_core::OsRng, PasswordHasher, SaltString}, Scrypt};
+
+    let salt = SaltString::generate(&mut OsRng);
+    match Scrypt.hash_password(password.as_bytes(), &salt) {
         Ok(password_hash) => { return Ok(password_hash.to_string()); },
         Err(error) => { return Err(HtpasswdError::new(error.to_string().as_str())) }
     }
