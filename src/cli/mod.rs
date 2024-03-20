@@ -50,22 +50,24 @@ struct Args {
 pub fn run() {
     let args = Args::parse();
     match ask_for_password()
-        .and_then(|p| { encode_password(args.encoding, p) })
+        .and_then(|p| encode_password(args.encoding, p))
         .and_then(|password| {
-      OpenOptions::new().create(true).append(true).open(args.file)
-      .map_err(|_| HtpasswdError::new("Failed to open htpasswd file"))
-      .and_then(|f| {
-        write_entry(f, args.username, password)
-        .map_err(|_| HtpasswdError::new("Failed to write to htpasswd file"))
-      })
-    }) {
-      Ok(_) => {
-        println!("Done.")
-    }
-    Err(e) => {
-        println!("{}", e)
-    }
-
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(args.file)
+                .map_err(|_| HtpasswdError::new("Failed to open htpasswd file"))
+                .and_then(|f| {
+                    write_entry(f, args.username, password)
+                        .map_err(|_| HtpasswdError::new("Failed to write to htpasswd file"))
+                })
+        }) {
+        Ok(_) => {
+            println!("Done.")
+        }
+        Err(e) => {
+            println!("{}", e)
+        }
     };
 }
 
@@ -87,31 +89,41 @@ fn ask_for_password() -> Result<String, HtpasswdError> {
 
 fn encode_password(enc: Encoding, password: String) -> Result<String, HtpasswdError> {
     match enc {
-        Encoding::PlainText => { return Ok(password) },
-        Encoding::Argon2 => { return argon_encode(password) },
-        Encoding::Scrypt => { return scrypt_encode(password) },
+        Encoding::PlainText => return Ok(password),
+        Encoding::Argon2 => return argon_encode(password),
+        Encoding::Scrypt => return scrypt_encode(password),
     }
 }
 
 fn argon_encode(password: String) -> Result<String, HtpasswdError> {
-    use argon2::{password_hash::{rand_core::OsRng, PasswordHasher, SaltString},Argon2};
+    use argon2::{
+        password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+        Argon2,
+    };
 
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
 
     match argon2.hash_password(password.as_bytes(), &salt) {
-        Ok(password_hash) => { return Ok(password_hash.to_string()); },
-        Err(error) => { return Err(HtpasswdError::new(error.to_string().as_str())) }
+        Ok(password_hash) => {
+            return Ok(password_hash.to_string());
+        }
+        Err(error) => return Err(HtpasswdError::new(error.to_string().as_str())),
     }
 }
 
 fn scrypt_encode(password: String) -> Result<String, HtpasswdError> {
-    use scrypt::{password_hash::{rand_core::OsRng, PasswordHasher, SaltString}, Scrypt};
+    use scrypt::{
+        password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+        Scrypt,
+    };
 
     let salt = SaltString::generate(&mut OsRng);
     match Scrypt.hash_password(password.as_bytes(), &salt) {
-        Ok(password_hash) => { return Ok(password_hash.to_string()); },
-        Err(error) => { return Err(HtpasswdError::new(error.to_string().as_str())) }
+        Ok(password_hash) => {
+            return Ok(password_hash.to_string());
+        }
+        Err(error) => return Err(HtpasswdError::new(error.to_string().as_str())),
     }
 }
 

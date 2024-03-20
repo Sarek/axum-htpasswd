@@ -1,6 +1,6 @@
 mod cli;
 
 fn main() {
-    #[cfg(feature="cli")]
+    #[cfg(feature = "cli")]
     cli::run();
 }

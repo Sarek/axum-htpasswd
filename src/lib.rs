@@ -6,11 +6,11 @@
 //! files.
 
 use argon2::Argon2;
-use password_hash::{PasswordHash, PasswordVerifier};
 use axum::http::{header, Request, Response, StatusCode};
 use base64::{engine::general_purpose, Engine as _};
 use http_body::Body;
 use log::{debug, error, info};
+use password_hash::{PasswordHash, PasswordVerifier};
 use scrypt::Scrypt;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -69,11 +69,18 @@ impl<ResBody> FileAuth<ResBody> {
             }
             match x.find(':') {
                 Some(pos) => {
-                    debug!("Adding credentials: Username: {}, Password(-Hash): {}", &x[0..pos - 1], &x[pos + 1..]);
-                    users.insert(x[0..pos-1].to_owned(), x[pos+1..].to_owned());
-                },
+                    debug!(
+                        "Adding credentials: Username: {}, Password(-Hash): {}",
+                        &x[0..pos - 1],
+                        &x[pos + 1..]
+                    );
+                    users.insert(x[0..pos - 1].to_owned(), x[pos + 1..].to_owned());
+                }
                 None => {
-                    debug!("Username-Password Delimiter not found, skipping line \"{}\"", &x);
+                    debug!(
+                        "Username-Password Delimiter not found, skipping line \"{}\"",
+                        &x
+                    );
                 }
             }
         });
@@ -101,15 +108,25 @@ impl<ResBody> FileAuth<ResBody> {
             if let Ok(credentials) = general_purpose::STANDARD.decode(credentials) {
                 if let Ok(credentials) = String::from_utf8(credentials) {
                     if let Some(pos) = credentials.find(':') {
-                        if let Some(saved_password) = self.known_users.get(&credentials[0..pos-1]) {
-                            if check_password(&*saved_password, &credentials[pos+1..]) {
-                                info!("Correct password supplied for user {}", &credentials[0..pos-1]);
+                        if let Some(saved_password) = self.known_users.get(&credentials[0..pos - 1])
+                        {
+                            if check_password(&*saved_password, &credentials[pos + 1..]) {
+                                info!(
+                                    "Correct password supplied for user {}",
+                                    &credentials[0..pos - 1]
+                                );
                                 return true;
                             } else {
-                                error!("Failed login attempt for user {}", &credentials[0..pos-1]);
+                                error!(
+                                    "Failed login attempt for user {}",
+                                    &credentials[0..pos - 1]
+                                );
                             }
                         } else {
-                            error!("Failed login attempt for unknown user {}", &credentials[0..pos-1]);
+                            error!(
+                                "Failed login attempt for unknown user {}",
+                                &credentials[0..pos - 1]
+                            );
                         }
                     } else {
                         error!("Could not extract username and password from supplied credentials");
@@ -126,7 +143,6 @@ impl<ResBody> FileAuth<ResBody> {
 
         false
     }
-
 }
 
 impl<B, ResBody> ValidateRequest<B> for FileAuth<ResBody>
@@ -173,9 +189,9 @@ fn check_password(saved: &str, passed: &str) -> bool {
                 Err(e) => {
                     debug!("Error while verifying password: {}", e.to_string());
                     false
-                },
+                }
             }
-        },
+        }
         Err(_) => {
             // The PHC string could not be parsed. Let's assume it's a plaintext password and
             // try to verify it.
@@ -184,7 +200,7 @@ fn check_password(saved: &str, passed: &str) -> bool {
             } else {
                 false
             }
-        },
+        }
     }
 }
 
@@ -225,7 +241,10 @@ mod tests {
         Ok(htpasswd)
     }
 
-    async fn setup_hashed_creds<Hasher: PasswordHasher>(hasher: Hasher, credentials: HashMap<&str, &str>) -> Result<File, std::io::Error> {
+    async fn setup_hashed_creds<Hasher: PasswordHasher>(
+        hasher: Hasher,
+        credentials: HashMap<&str, &str>,
+    ) -> Result<File, std::io::Error> {
         use argon2::password_hash::{rand_core::OsRng, SaltString};
         let mut htpasswd = tempfile()?;
         for cred in credentials.into_iter() {
@@ -234,7 +253,10 @@ mod tests {
             if let Ok(hash) = hasher.hash_password(cred.1.as_bytes(), &salt) {
                 writeln!(htpasswd, "{}:{}", &cred.0, &hash)?
             } else {
-                return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Failed to hash provided password"));
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Failed to hash provided password",
+                ));
             }
         }
         let mut htpasswd = tokio::fs::File::from_std(htpasswd);
