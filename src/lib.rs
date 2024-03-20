@@ -11,6 +11,7 @@ use axum::http::{header, Request, Response, StatusCode};
 use base64::{engine::general_purpose, Engine as _};
 use http_body::Body;
 use log::{debug, error, info};
+use scrypt::Scrypt;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::str;
@@ -165,7 +166,7 @@ fn check_password(saved: &str, passed: &str) -> bool {
     match PasswordHash::new(&saved) {
         Ok(pw_hash) => {
             // The PHC string could be parsed, we can attempt to verify the password hashes
-            let algs: &[&dyn PasswordVerifier] = &[&Argon2::default()];
+            let algs: &[&dyn PasswordVerifier] = &[&Argon2::default(), &Scrypt];
 
             match pw_hash.verify_password(algs, passed) {
                 Ok(_) => true,
@@ -190,6 +191,7 @@ fn check_password(saved: &str, passed: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use axum::response::Response;
+    use password_hash::PasswordHasher;
     use simple_logger::SimpleLogger;
     use std::io::{SeekFrom, Write};
     use tempfile::tempfile;
@@ -223,14 +225,13 @@ mod tests {
         Ok(htpasswd)
     }
 
-    async fn setup_argon2_creds(credentials: HashMap<&str, &str>) -> Result<File, std::io::Error> {
-        use argon2::password_hash::{rand_core::OsRng, PasswordHasher, SaltString};
+    async fn setup_hashed_creds<Hasher: PasswordHasher>(hasher: Hasher, credentials: HashMap<&str, &str>) -> Result<File, std::io::Error> {
+        use argon2::password_hash::{rand_core::OsRng, SaltString};
         let mut htpasswd = tempfile()?;
         for cred in credentials.into_iter() {
             let salt = SaltString::generate(&mut OsRng);
-            let argon2 = Argon2::default();
 
-            if let Ok(hash) = argon2.hash_password(cred.1.as_bytes(), &salt) {
+            if let Ok(hash) = hasher.hash_password(cred.1.as_bytes(), &salt) {
                 writeln!(htpasswd, "{}:{}", &cred.0, &hash)?
             } else {
                 return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Failed to hash provided password"));
@@ -268,7 +269,21 @@ mod tests {
         setup_logging();
 
         let cred = HashMap::from([("foo", "bar")]);
-        let mut htpasswd = setup_argon2_creds(cred).await.unwrap();
+        let mut htpasswd = setup_hashed_creds(Argon2::default(), cred).await.unwrap();
+
+        let uut = FileAuth::<Response>::new(&mut htpasswd).await;
+
+        let cred = general_purpose::STANDARD.encode("foo:bar");
+        assert!(uut.authorized(&("Basic ".to_owned() + &cred)));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_scrypt_auth() -> Result<(), std::io::Error> {
+        setup_logging();
+
+        let cred = HashMap::from([("foo", "bar")]);
+        let mut htpasswd = setup_hashed_creds(Scrypt, cred).await.unwrap();
 
         let uut = FileAuth::<Response>::new(&mut htpasswd).await;
 
@@ -297,7 +312,21 @@ mod tests {
         setup_logging();
 
         let cred = HashMap::from([("foo", "bar")]);
-        let mut htpasswd = setup_argon2_creds(cred).await.unwrap();
+        let mut htpasswd = setup_hashed_creds(Argon2::default(), cred).await.unwrap();
+
+        let uut = FileAuth::<Response>::new(&mut htpasswd).await;
+
+        let cred = general_purpose::STANDARD.encode("foo:baz");
+        assert!(!uut.authorized(&("Basic ".to_owned() + &cred)));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_scrypt_auth_fails() -> Result<(), std::io::Error> {
+        setup_logging();
+
+        let cred = HashMap::from([("foo", "bar")]);
+        let mut htpasswd = setup_hashed_creds(Scrypt, cred).await.unwrap();
 
         let uut = FileAuth::<Response>::new(&mut htpasswd).await;
 
