@@ -9,8 +9,6 @@ use argon2::Argon2;
 use password_hash::{PasswordHash, PasswordVerifier};
 use axum::http::{header, Request, Response, StatusCode};
 use base64::{engine::general_purpose, Engine as _};
-#[cfg(feature = "cli")]
-use clap::ValueEnum;
 use http_body::Body;
 use log::{debug, error, info};
 use std::collections::HashMap;
@@ -19,14 +17,6 @@ use std::str;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tower_http::validate_request::ValidateRequest;
-
-#[cfg_attr(feature = "cli", derive(ValueEnum))]
-#[derive(Debug, Copy, Clone)]
-pub enum Encoding {
-    PlainText,
-    MD5,   // not implemented yet!
-    ARGON, // not implemented yet!
-}
 
 /// File-based authentication provider backed by a plaintext file.
 ///

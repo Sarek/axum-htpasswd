@@ -1,13 +1,18 @@
 #![cfg(feature = "cli")]
 
-use axum_htpasswd::Encoding;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use rpassword::prompt_password;
 use std::{
     fmt,
     fs::{File, OpenOptions},
     io::{BufWriter, Error, Write},
 };
+
+#[derive(Debug, Copy, Clone, ValueEnum)]
+pub enum Encoding {
+    PlainText,
+    Argon2,
+}
 
 #[derive(Debug, Clone)]
 struct HtpasswdError {
@@ -82,8 +87,7 @@ fn ask_for_password() -> Result<String, HtpasswdError> {
 fn encode_password(enc: Encoding, password: String) -> Result<String, HtpasswdError> {
     match enc {
         Encoding::PlainText => { return Ok(password) },
-        Encoding::MD5 => todo!(),
-        Encoding::ARGON => { return argon_encode(password)},
+        Encoding::Argon2 => { return argon_encode(password)},
     }
 }
 
