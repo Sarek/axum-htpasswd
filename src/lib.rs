@@ -110,7 +110,7 @@ impl<ResBody> FileAuth<ResBody> {
                     if let Some(pos) = credentials.find(':') {
                         if let Some(saved_password) = self.known_users.get(&credentials[0..pos - 1])
                         {
-                            if check_password(&*saved_password, &credentials[pos + 1..]) {
+                            if check_password(saved_password, &credentials[pos + 1..]) {
                                 info!(
                                     "Correct password supplied for user {}",
                                     &credentials[0..pos - 1]
@@ -179,7 +179,7 @@ impl<ResBody> Clone for FileAuth<ResBody> {
 }
 
 fn check_password(saved: &str, passed: &str) -> bool {
-    match PasswordHash::new(&saved) {
+    match PasswordHash::new(saved) {
         Ok(pw_hash) => {
             // The PHC string could be parsed, we can attempt to verify the password hashes
             let algs: &[&dyn PasswordVerifier] = &[&Argon2::default(), &Scrypt];
@@ -195,11 +195,7 @@ fn check_password(saved: &str, passed: &str) -> bool {
         Err(_) => {
             // The PHC string could not be parsed. Let's assume it's a plaintext password and
             // try to verify it.
-            if saved == passed {
-                true
-            } else {
-                false
-            }
+            saved == passed
         }
     }
 }
